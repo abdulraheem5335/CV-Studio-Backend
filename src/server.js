@@ -1,21 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const http = require('http');
-const { initializeSocketServer } = require('./socket/socketServer');
-const { connectDB, getConnectionStatus } = require('./config/database');
 
 // Load environment variables
 dotenv.config();
 
 // Initialize express app
 const app = express();
-const server = http.createServer(app);
-
-// Initialize Socket.io for real-time chat
-const io = initializeSocketServer(server);
 
 // Connect to MongoDB
+const { connectDB } = require('./config/database');
 connectDB();
 
 // Middleware
@@ -53,17 +47,16 @@ app.use('/api/quests', require('./routes/quest.routes'));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  const dbStatus = getConnectionStatus();
   res.json({ 
     status: 'ok', 
     message: 'NUST Campus API is running!',
-    database: dbStatus
+    environment: process.env.NODE_ENV || 'unknown'
   });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error:', err);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error'
@@ -75,11 +68,13 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-const PORT = process.env.PORT || 5000;
+// Export for Vercel serverless functions
+module.exports = app;
 
-server.listen(PORT, () => {
-  console.log(`🚀 NUST Campus Server running on port ${PORT}`);
-  console.log(`🔌 Socket.io ready for real-time connections`);
-});
-
-module.exports = { app, server, io };
+// Local development server (not used on Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 NUST Campus Server running on port ${PORT}`);
+  });
+}
